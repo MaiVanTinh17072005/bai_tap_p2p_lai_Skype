@@ -4,58 +4,72 @@ import org.example.client.ChatClient;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class ChatFrame extends JFrame {
     private DefaultListModel<String> userListModel = new DefaultListModel<>();
     private JList<String> userList = new JList<>(userListModel);
     private ChatClient client;
+    private boolean serverMode;
 
-    public ChatFrame(ChatClient client) {
+    public ChatFrame(ChatClient client, boolean serverMode) {
         this.client = client;
-        setTitle("Chat - " + client.getUsername());
+        this.serverMode = serverMode;
+
+        setTitle("Chat - " + client.getUsername() + (serverMode ? " (Server Mode)" : " (P2P Mode)"));
         setSize(400, 450);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // ===== Panel trên hiển thị danh sách user online =====
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.add(new JLabel("Online Users"), BorderLayout.NORTH);
-        topPanel.add(new JScrollPane(userList), BorderLayout.CENTER);
+        if (serverMode) {
+            JPanel topPanel = new JPanel(new BorderLayout());
+            topPanel.add(new JLabel("Online Users"), BorderLayout.NORTH);
+            topPanel.add(new JScrollPane(userList), BorderLayout.CENTER);
+            add(topPanel, BorderLayout.CENTER);
 
-        // ===== Panel dưới có nút Logout =====
+            userList.addMouseListener(new MouseAdapter() {
+                public void mouseClicked(MouseEvent evt) {
+                    if (evt.getClickCount() == 2) {
+                        String selectedUser = userList.getSelectedValue();
+                        if (selectedUser != null) {
+                            new PrivateChatFrame(client, selectedUser);
+                        }
+                    }
+                }
+            });
+        } else {
+            JPanel p2pPanel = new JPanel(new BorderLayout());
+            JButton connectBtn = new JButton("Kết nối P2P");
+            p2pPanel.add(connectBtn, BorderLayout.NORTH);
+
+            connectBtn.addActionListener(e -> {
+                String ip = JOptionPane.showInputDialog(this, "Nhập IP:Port (vd: 127.0.0.1:5000)");
+                if (ip != null && !ip.isEmpty()) {
+                    new PrivateChatFrame(client, ip);
+                }
+            });
+
+            add(p2pPanel, BorderLayout.CENTER);
+        }
+
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton logoutBtn = new JButton("Logout");
         bottomPanel.add(logoutBtn);
-
-        add(topPanel, BorderLayout.CENTER);
         add(bottomPanel, BorderLayout.SOUTH);
 
-        // ===== Event double click vào user để mở chat riêng =====
-        userList.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent evt) {
-                if (evt.getClickCount() == 2) {
-                    String selectedUser = userList.getSelectedValue();
-                    if (selectedUser != null) {
-                        new PrivateChatFrame(client, selectedUser);
-                    }
-                }
-            }
-        });
-
-        // ===== Event nút Logout =====
         logoutBtn.addActionListener(e -> {
             client.logout();
-            PrivateChatFrame.closeAllChats(); // đóng hết cửa sổ chat riêng
-            dispose(); // đóng cửa sổ ChatFrame
-            new LoginFrame(); // quay về login
+            PrivateChatFrame.closeAllChats();
+            dispose();
+            new LoginFrame();
         });
 
         setVisible(true);
     }
 
-    // Cập nhật danh sách online
     public void updateUserList(String[] users) {
+        if (!serverMode) return;
         SwingUtilities.invokeLater(() -> {
             userListModel.clear();
             for (String u : users) {
@@ -66,7 +80,6 @@ public class ChatFrame extends JFrame {
         });
     }
 
-    // Nhận tin nhắn từ user khác
     public void receiveMessage(String from, String content) {
         PrivateChatFrame.showMessage(from, content);
     }

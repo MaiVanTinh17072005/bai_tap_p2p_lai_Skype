@@ -47,7 +47,7 @@ public class ChatServer {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("Client disconnected.");
         }
     }
 

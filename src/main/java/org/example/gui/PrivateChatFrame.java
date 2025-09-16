@@ -40,7 +40,6 @@ public class PrivateChatFrame extends JFrame {
         setVisible(true);
     }
 
-    // Hiển thị tin nhắn đến
     public static void showMessage(String from, String content) {
         PrivateChatFrame frame = openChats.get(from);
         if (frame != null) {
@@ -50,7 +49,6 @@ public class PrivateChatFrame extends JFrame {
         }
     }
 
-    // Đóng toàn bộ chat khi logout
     public static void closeAllChats() {
         for (PrivateChatFrame frame : openChats.values()) {
             frame.dispose();

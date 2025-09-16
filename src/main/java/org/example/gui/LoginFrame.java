@@ -26,9 +26,9 @@ public class LoginFrame extends JFrame {
                 try {
                     ChatClient client = new ChatClient(username);
                     client.connect();
-                    dispose(); // tắt màn login
+                    dispose();
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Cannot connect to server");
+                    JOptionPane.showMessageDialog(this, "Cannot connect");
                 }
             }
         });
