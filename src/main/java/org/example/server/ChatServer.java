@@ -1,62 +1,96 @@
 package org.example.server;
 
 import org.example.model.Message;
+import org.example.model.User;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ChatServer {
-    private static Map<String, ObjectOutputStream> clients = new HashMap<>();
+    private static final int PORT = 12345;
+    private Map<String, ObjectOutputStream> clients = new HashMap<>();
+    private Map<String, User> users = new HashMap<>();
 
-    public static void main(String[] args) throws IOException {
-        ServerSocket serverSocket = new ServerSocket(12345);
-        System.out.println("Server started on port 12345...");
-
-        while (true) {
-            Socket socket = serverSocket.accept();
-            new Thread(() -> handleClient(socket)).start();
-        }
-    }
-
-    private static void handleClient(Socket socket) {
-        try (
-                ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream())
-        ) {
-            String username = null;
+    public void start() {
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            System.out.println("Server running on port " + PORT);
             while (true) {
-                Message msg = (Message) in.readObject();
-                switch (msg.getType()) {
-                    case "LOGIN":
-                        username = msg.getFrom();
-                        clients.put(username, out);
-                        broadcastUserList();
-                        break;
-                    case "LOGOUT":
-                        clients.remove(msg.getFrom());
-                        broadcastUserList();
-                        return;
-                    case "MESSAGE":
-                        ObjectOutputStream targetOut = clients.get(msg.getTo());
-                        if (targetOut != null) {
-                            targetOut.writeObject(msg);
-                            targetOut.flush();
-                        }
-                        break;
-                }
+                Socket socket = serverSocket.accept();
+                new ClientThread(socket).start();
             }
         } catch (Exception e) {
-            System.out.println("Client disconnected.");
+            e.printStackTrace();
         }
     }
 
-    private static void broadcastUserList() throws IOException {
-        String users = String.join(",", clients.keySet());
-        Message msg = new Message("USER_LIST", "server", null, users);
-        for (ObjectOutputStream out : clients.values()) {
-            out.writeObject(msg);
-            out.flush();
+    private class ClientThread extends Thread {
+        private Socket socket;
+
+        public ClientThread(Socket socket) {
+            this.socket = socket;
         }
+
+        @Override
+        public void run() {
+            try {
+                ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+
+                while (true) {
+                    Message msg = (Message) in.readObject();
+                    switch (msg.getType()) {
+                        case "LOGIN":
+                            String username = msg.getFrom();
+                            String[] ipPort = msg.getContent().split(":");
+                            String ip = ipPort[0];
+                            int p2pPort = Integer.parseInt(ipPort[1]);
+                            users.put(username, new User(username, ip, p2pPort));
+                            clients.put(username, out);
+                            broadcastUserList();
+                            break;
+                        case "LOGOUT":
+                            users.remove(msg.getFrom());
+                            clients.remove(msg.getFrom());
+                            broadcastUserList();
+                            socket.close();
+                            return;
+                        case "MESSAGE":
+                            ObjectOutputStream targetOut = clients.get(msg.getTo());
+                            if (targetOut != null && !msg.getFrom().equals(msg.getTo())) { // Không gửi lại cho sender
+                                targetOut.writeObject(msg);
+                                targetOut.flush();
+                            }
+                            break;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void broadcastUserList() {
+        StringBuilder content = new StringBuilder();
+        for (Map.Entry<String, User> entry : users.entrySet()) {
+            User u = entry.getValue();
+            content.append(u.getUsername()).append("=").append(u.getIp()).append(":").append(u.getPort()).append(";");
+        }
+        Message listMsg = new Message("USER_LIST", null, null, content.toString());
+        for (ObjectOutputStream out : clients.values()) {
+            try {
+                out.writeObject(listMsg);
+                out.flush();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        new ChatServer().start();
     }
 }

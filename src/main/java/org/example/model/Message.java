@@ -3,7 +3,7 @@ package org.example.model;
 import java.io.Serializable;
 
 public class Message implements Serializable {
-    private String type;   // "LOGIN", "LOGOUT", "MESSAGE", "USER_LIST"
+    private String type; // LOGIN, LOGOUT, MESSAGE, USER_LIST
     private String from;
     private String to;
     private String content;
@@ -15,6 +15,7 @@ public class Message implements Serializable {
         this.content = content;
     }
 
+    // Getters
     public String getType() { return type; }
     public String getFrom() { return from; }
     public String getTo() { return to; }

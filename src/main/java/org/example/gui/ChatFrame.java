@@ -4,83 +4,85 @@ import org.example.client.ChatClient;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ChatFrame extends JFrame {
-    private DefaultListModel<String> userListModel = new DefaultListModel<>();
-    private JList<String> userList = new JList<>(userListModel);
     private ChatClient client;
     private boolean serverMode;
+    private JList<String> friendsList = new JList<>();
+    private Map<String, PrivateChatFrame> privateChats = new HashMap<>();
 
     public ChatFrame(ChatClient client, boolean serverMode) {
         this.client = client;
         this.serverMode = serverMode;
 
-        setTitle("Chat - " + client.getUsername() + (serverMode ? " (Server Mode)" : " (P2P Mode)"));
-        setSize(400, 450);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setTitle("Chat App - " + client.getUsername() + " (" + (serverMode ? "Server Mode" : "P2P Mode") + ")");
+        setSize(600, 400);
         setLayout(new BorderLayout());
 
-        if (serverMode) {
-            JPanel topPanel = new JPanel(new BorderLayout());
-            topPanel.add(new JLabel("Online Users"), BorderLayout.NORTH);
-            topPanel.add(new JScrollPane(userList), BorderLayout.CENTER);
-            add(topPanel, BorderLayout.CENTER);
+        JLabel label = new JLabel("Friends Online:");
+        add(label, BorderLayout.NORTH);
 
-            userList.addMouseListener(new MouseAdapter() {
-                public void mouseClicked(MouseEvent evt) {
-                    if (evt.getClickCount() == 2) {
-                        String selectedUser = userList.getSelectedValue();
-                        if (selectedUser != null) {
-                            new PrivateChatFrame(client, selectedUser);
-                        }
-                    }
-                }
-            });
-        } else {
-            JPanel p2pPanel = new JPanel(new BorderLayout());
-            JButton connectBtn = new JButton("Kết nối P2P");
-            p2pPanel.add(connectBtn, BorderLayout.NORTH);
+        friendsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        add(new JScrollPane(friendsList), BorderLayout.CENTER);
 
-            connectBtn.addActionListener(e -> {
-                String ip = JOptionPane.showInputDialog(this, "Nhập IP:Port (vd: 127.0.0.1:5000)");
-                if (ip != null && !ip.isEmpty()) {
-                    new PrivateChatFrame(client, ip);
-                }
-            });
-
-            add(p2pPanel, BorderLayout.CENTER);
-        }
-
-        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton logoutBtn = new JButton("Logout");
-        bottomPanel.add(logoutBtn);
-        add(bottomPanel, BorderLayout.SOUTH);
-
-        logoutBtn.addActionListener(e -> {
-            client.logout();
-            PrivateChatFrame.closeAllChats();
-            dispose();
-            new LoginFrame();
-        });
-
-        setVisible(true);
-    }
-
-    public void updateUserList(String[] users) {
-        if (!serverMode) return;
-        SwingUtilities.invokeLater(() -> {
-            userListModel.clear();
-            for (String u : users) {
-                if (!u.isEmpty() && !u.equals(client.getUsername())) {
-                    userListModel.addElement(u);
+        friendsList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                String selected = friendsList.getSelectedValue();
+                if (selected != null && !selected.equals(client.getUsername())) {
+                    openPrivateChat(selected);
                 }
             }
         });
+
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                client.logout();
+            }
+        });
+        setVisible(true);
+    }
+
+    public void updateMode(boolean serverMode) {
+        this.serverMode = serverMode;
+        setTitle("Chat App - " + client.getUsername() + " (" + (serverMode ? "Server Mode" : "P2P Mode") + ")");
+    }
+
+    public void updateFriendsList(Collection<String> users) {
+        DefaultListModel<String> model = new DefaultListModel<>();
+        users.forEach(model::addElement);
+        friendsList.setModel(model);
+    }
+
+    private void openPrivateChat(String target) {
+        PrivateChatFrame frame = privateChats.get(target);
+        if (frame == null) {
+            frame = new PrivateChatFrame(client, target);
+            privateChats.put(target, frame);
+        }
+        frame.setVisible(true);
     }
 
     public void receiveMessage(String from, String content) {
-        PrivateChatFrame.showMessage(from, content);
+        PrivateChatFrame frame = privateChats.get(from);
+        if (frame == null) {
+            openPrivateChat(from);
+            frame = privateChats.get(from);
+        }
+        if (frame != null) {
+            frame.showMessage(from, content);
+        }
+    }
+
+    // Thêm phương thức để append tin gửi local ở server mode
+    public void appendLocalMessage(String to, String content) {
+        PrivateChatFrame frame = privateChats.get(to);
+        if (frame != null) {
+            frame.appendLocal("Me: " + content);
+        }
     }
 }

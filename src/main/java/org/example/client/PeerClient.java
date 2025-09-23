@@ -13,7 +13,7 @@ public class PeerClient {
 
             Socket socket = new Socket(ip, port);
             PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
-            out.println(msg);
+            out.println(msg); // Đảm bảo msg chỉ là "content" hoặc "from:content"
             socket.close();
         } catch (Exception e) {
             e.printStackTrace();
