@@ -5,14 +5,14 @@ import org.example.client.ChatClient;
 import javax.swing.*;
 import java.awt.*;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 public class ChatFrame extends JFrame {
     private ChatClient client;
     private boolean serverMode;
     private JList<String> friendsList = new JList<>();
-    private Map<String, PrivateChatFrame> privateChats = new HashMap<>();
+    private JTextArea chatArea = new JTextArea();
+    private JTextField input = new JTextField();
+    private String currentTarget = null; // Lưu bạn chat hiện tại
 
     public ChatFrame(ChatClient client, boolean serverMode) {
         this.client = client;
@@ -31,21 +31,48 @@ public class ChatFrame extends JFrame {
         JButton logoutButton = new JButton("Logout");
         logoutButton.addActionListener(e -> {
             client.logout();
-            dispose(); // Đóng cửa sổ hiện tại
-            System.exit(0); // Thoát hoàn toàn ứng dụng
+            dispose();
+            System.exit(0);
         });
         northPanel.add(logoutButton, BorderLayout.EAST);
 
         add(northPanel, BorderLayout.NORTH);
 
-        friendsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        add(new JScrollPane(friendsList), BorderLayout.CENTER);
+        // Panel chính: friendsList bên trái, chatArea và input bên phải
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        splitPane.setDividerLocation(150); // Độ rộng danh sách bạn bè
 
+        // Phần bên trái: Danh sách bạn bè
+        JPanel leftPanel = new JPanel(new BorderLayout());
+        leftPanel.add(new JScrollPane(friendsList), BorderLayout.CENTER);
+        splitPane.setLeftComponent(leftPanel);
+
+        // Phần bên phải: Chat area và input
+        JPanel rightPanel = new JPanel(new BorderLayout());
+        chatArea.setEditable(false);
+        rightPanel.add(new JScrollPane(chatArea), BorderLayout.CENTER);
+        rightPanel.add(input, BorderLayout.SOUTH);
+
+        input.addActionListener(e -> {
+            String text = input.getText().trim();
+            if (!text.isEmpty() && currentTarget != null) {
+                client.sendMessage(currentTarget, text);
+                chatArea.append("Me: " + text + "\n");
+                input.setText("");
+            }
+        });
+
+        splitPane.setRightComponent(rightPanel);
+        add(splitPane, BorderLayout.CENTER);
+
+        friendsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         friendsList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selected = friendsList.getSelectedValue();
                 if (selected != null && !selected.equals(client.getUsername())) {
-                    openPrivateChat(selected);
+                    currentTarget = selected; // Cập nhật bạn chat hiện tại
+                    chatArea.setText(""); // Xóa chat area để bắt đầu với bạn mới
+                    chatArea.append("Chatting with " + currentTarget + "\n");
                 }
             }
         });
@@ -71,30 +98,10 @@ public class ChatFrame extends JFrame {
         friendsList.setModel(model);
     }
 
-    private void openPrivateChat(String target) {
-        PrivateChatFrame frame = privateChats.get(target);
-        if (frame == null) {
-            frame = new PrivateChatFrame(client, target);
-            privateChats.put(target, frame);
-        }
-        frame.setVisible(true);
-    }
-
     public void receiveMessage(String from, String content) {
-        PrivateChatFrame frame = privateChats.get(from);
-        if (frame == null) {
-            openPrivateChat(from);
-            frame = privateChats.get(from);
-        }
-        if (frame != null) {
-            frame.showMessage(from, content);
+        if (currentTarget != null && from.equals(currentTarget)) { // Chỉ hiển thị nếu đang chat với người gửi
+            chatArea.append(from + ": " + content + "\n");
         }
     }
 
-    public void appendLocalMessage(String to, String content) {
-        PrivateChatFrame frame = privateChats.get(to);
-        if (frame != null) {
-            frame.appendLocal("Me: " + content);
-        }
-    }
 }
