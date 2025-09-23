@@ -22,8 +22,21 @@ public class ChatFrame extends JFrame {
         setSize(600, 400);
         setLayout(new BorderLayout());
 
+        // Panel phía Bắc cho nút Logout và nhãn
+        JPanel northPanel = new JPanel(new BorderLayout());
         JLabel label = new JLabel("Friends Online:");
-        add(label, BorderLayout.NORTH);
+        northPanel.add(label, BorderLayout.CENTER);
+
+        // Thêm nút Logout
+        JButton logoutButton = new JButton("Logout");
+        logoutButton.addActionListener(e -> {
+            client.logout();
+            dispose(); // Đóng cửa sổ hiện tại
+            System.exit(0); // Thoát hoàn toàn ứng dụng
+        });
+        northPanel.add(logoutButton, BorderLayout.EAST);
+
+        add(northPanel, BorderLayout.NORTH);
 
         friendsList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         add(new JScrollPane(friendsList), BorderLayout.CENTER);
@@ -78,7 +91,6 @@ public class ChatFrame extends JFrame {
         }
     }
 
-    // Thêm phương thức để append tin gửi local ở server mode
     public void appendLocalMessage(String to, String content) {
         PrivateChatFrame frame = privateChats.get(to);
         if (frame != null) {

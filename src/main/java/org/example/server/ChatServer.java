@@ -55,12 +55,12 @@ public class ChatServer {
                         case "LOGOUT":
                             users.remove(msg.getFrom());
                             clients.remove(msg.getFrom());
-                            broadcastUserList();
+                            broadcastUserList(); // Broadcast danh sách mới sau khi logout
                             socket.close();
                             return;
                         case "MESSAGE":
                             ObjectOutputStream targetOut = clients.get(msg.getTo());
-                            if (targetOut != null && !msg.getFrom().equals(msg.getTo())) { // Không gửi lại cho sender
+                            if (targetOut != null && !msg.getFrom().equals(msg.getTo())) {
                                 targetOut.writeObject(msg);
                                 targetOut.flush();
                             }
